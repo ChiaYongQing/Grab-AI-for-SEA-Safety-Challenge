@@ -289,6 +289,16 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 ```
 from sklearn import preprocessing
 from sklearn import linear_model
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
+from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import classification_report
+import matplotlib.pyplot as plt
+%matplotlib inline
 
 # normalising everything
 selected_cols = X_train.columns
@@ -319,7 +329,7 @@ plt.title('R-square vs Alpha')
 # show the plot
 plt.show()
 ```
-
+```
 selected variables from lasso @ alpha ~ 0.0001:
 zAcc_>threshold 	 0.25427148495348156
 xGyr_>threshold 	 -0.025717105765715214
@@ -343,7 +353,7 @@ meanAccDiff 	 0.7332140654089745
 meanBearDiff 	 0.8622486587114753
 meanBearRate 	 -0.6403330207910954
 meanAccXZ 	 0.4946368371833259
-
+```
 ```
 selected_cols = ['zAcc_>threshold',
                  'xGyr_>threshold',
@@ -368,9 +378,119 @@ selected_cols = ['zAcc_>threshold',
                  'meanBearRate',
                  'meanAccXZ'
                 ]
-
+```
+```
 X3 = X[selected_cols]
 X3_train, X3_test = train_test_split(X3, test_size=0.2, random_state=2019)
 X3_train = min_max_scaler.fit_transform(X3_train)
 X3_test = min_max_scaler.transform(X3_test)
+```
+```
+
+
+log = linear_model.LogisticRegression()
+
+#LogisticRegression
+log.fit(X3_train, y_train)
+prb = log.predict_proba(X3_test)
+danger = prb[:, 1:2]
+pred = (log.predict_proba(X3_test)[:,1] >= 0.35).astype(bool)
+fpr_log, tpr_log, thresholds_log = roc_curve(y_test, danger)
+
+auc_log = roc_auc_score(y_test, danger)
+acc_log = accuracy_score(y_test, pred)
+precision_log = precision_score(y_test, pred)
+recall_log = recall_score(y_test, pred)
+f2_log = metrics.fbeta_score(y_test, pred, beta = 2)
+
+report = """
+The evaluation report is:
+Confusion Matrix:
+{}
+Accuracy: {}
+Precision: {}
+Recall: {} 
+F2: {}
+""".format(confusion_matrix(y_test, pred), 
+           accuracy_score(y_test, pred), 
+           precision_score(y_test, pred),
+           recall_score(y_test, pred),
+           metrics.fbeta_score(y_test, pred, beta = 2))
+print(report)
+
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_log, tpr_log, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curve')
+plt.legend(('Line of No Discrimination', 'ROC'))
+plt.show()
+
+auc_report = """
+AUC: {}
+""".format(roc_auc_score(y_test, danger))
+print(auc_report)
+```
+### Modelling - Neural Network
+```
+# Model architecture: 1 hidden layer, 10 neurons, batch size: 40, epochs: 50, kernel_initializer: normal
+
+import os
+import glob
+from sklearn.model_selection import GridSearchCV
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.layers import Dropout
+from keras.constraints import maxnorm
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import learning_curve
+from sklearn import ensemble, metrics
+from tensorflow import keras
+%matplotlib inline
+```
+```
+def create_model():
+
+    classifier = Sequential()
+    #First Hidden Layer
+    classifier.add(Dense(10, activation='relu', kernel_initializer='random_normal', bias_initializer= 
+      "zeros", input_dim=39))
+    #Output Layer
+    classifier.add(Dense(1, activation='sigmoid', kernel_initializer='random_normal', bias_initializer= 
+      "zeros"))
+    #Compiling the neural network
+    classifier.compile(optimizer ='adam',loss='binary_crossentropy', metrics =['accuracy'])
+    return classifier
+
+seed = 2019
+numpy.random.seed(seed)
+model = KerasClassifier(build_fn=create_model, verbose=0)
+# define the grid search parameters
+batch_size = [10, 20, 40, 60, 80, 100]
+epochs = [10, 50, 100]
+param_grid = dict(batch_size=batch_size, epochs=epochs)
+grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1)
+grid_result = grid.fit(X2_train, y_train)
+# summarize results
+print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+means = grid_result.cv_results_['mean_test_score']
+stds = grid_result.cv_results_['std_test_score']
+params = grid_result.cv_results_['params']
+for mean, stdev, param in zip(means, stds, params):
+    print("%f (%f) with: %r" % (mean, stdev, param))
+```
+```
+model = Sequential()
+#First Hidden Layer
+model.add(Dense(30, activation='relu', kernel_initializer='normal', bias_initializer= 
+  "zeros", input_dim=39))
+model.add(Dropout(0.1))
+#Output Layer
+model.add(Dense(1, activation='sigmoid', kernel_initializer='normal', bias_initializer= 
+  "zeros"))
+#Compiling the neural network
+model.compile(optimizer ='adam',loss='binary_crossentropy', metrics =['accuracy'])
+
+model.summary()
 ```
