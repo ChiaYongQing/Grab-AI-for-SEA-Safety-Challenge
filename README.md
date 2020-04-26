@@ -289,14 +289,19 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 ```
 from sklearn import preprocessing
 from sklearn import linear_model
-from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
+from sklearn import model_selection 
+from sklearn import ensemble, metrics
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import classification_report
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import learning_curve
+from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 %matplotlib inline
 
@@ -430,6 +435,11 @@ auc_report = """
 AUC: {}
 """.format(roc_auc_score(y_test, danger))
 print(auc_report)
+
+# Accuracy: 0.7592082184916061
+# Precision: 0.5
+# Recall: 0.3850156087408949 
+# F2: 0.40357766143106455
 ```
 ### Modelling - Neural Network
 ```
@@ -443,9 +453,7 @@ from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.layers import Dropout
 from keras.constraints import maxnorm
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import learning_curve
-from sklearn import ensemble, metrics
+
 from tensorflow import keras
 %matplotlib inline
 ```
@@ -494,3 +502,579 @@ model.compile(optimizer ='adam',loss='binary_crossentropy', metrics =['accuracy'
 
 model.summary()
 ```
+```
+# Fitting the data to the training dataset
+model.fit(X3_train,y_train,validation_data=(X3_test, y_test), batch_size=40, epochs=50)
+
+eval_model=model.evaluate(X3_train, y_train)
+eval_model
+
+y_pred=model.predict(X3_test)
+```
+```
+y_pred_threshold =(y_pred>0.35)
+fpr_nn, tpr_nn, threshold_nn = roc_curve(y_test, y_pred)
+
+auc_nn = roc_auc_score(y_test, y_pred)
+acc_nn = accuracy_score(y_test, y_pred_threshold)
+precision_nn = precision_score(y_test, y_pred_threshold)
+recall_nn = recall_score(y_test, y_pred_threshold)
+f2_nn = metrics.fbeta_score(y_test, y_pred_threshold, beta = 2)
+
+report = """
+The evaluation report is:
+Confusion Matrix:
+{}
+Accuracy: {}
+Precision: {}
+Recall: {} 
+F2: {}
+""".format(confusion_matrix(y_test, y_pred_threshold), 
+           accuracy_score(y_test, y_pred_threshold), 
+           precision_score(y_test, y_pred_threshold),
+           recall_score(y_test, y_pred_threshold),
+           metrics.fbeta_score(y_test, y_pred_threshold, beta = 2))
+print(report)
+
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_nn, tpr_nn, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curve')
+plt.legend(('Line of No Discrimination', 'ROC'))
+plt.show()
+
+auc_report = """
+AUC: {}
+""".format(auc_nn)
+print(auc_report)
+
+# Accuracy: 0.7722375344525182
+# Precision: 0.5410094637223974
+#Recall: 0.35691987513007284 
+# F2: 0.38298347476552025
+```
+```
+# plot accuracy
+
+from matplotlib import pyplot
+%matplotlib inline
+
+#eval result
+history = model.fit(X3_train,y_train,validation_data=(X3_test, y_test), batch_size=40, epochs=50, verbose=0)
+
+_, acc = model.evaluate(X3_train, y_train, verbose=0)
+scores, histories = list(), list()
+scores.append(acc)
+histories.append(history)
+
+axes = plt.gca()
+axes.set_ylim([0.35,0.6])
+
+# plot loss
+pyplot.title('Cross Entropy Loss')
+pyplot.plot(np.linspace(1,len(histories[0].history['loss']),
+                        num=len(histories[0].history['loss'])),
+            np.array(histories[0].history['loss']),
+            color='blue', label='train')
+pyplot.plot(np.linspace(1,len(histories[0].history['val_loss']),
+                        num=len(histories[0].history['val_loss'])),
+            np.array(histories[0].history['val_loss']),
+            color='orange', label='test')
+pyplot.xlabel("Epoch")
+pyplot.ylabel("Loss")
+pyplot.legend(loc='upper right')
+pyplot.show()
+
+axes = plt.gca()
+axes.set_ylim([0.76,0.82])
+
+pyplot.title('Classification Accuracy')
+pyplot.plot(np.linspace(1,len(histories[0].history['acc']),
+                        num=len(histories[0].history['acc'])),
+            np.array(histories[0].history['acc']),
+            color='blue', label='train')
+pyplot.plot(np.linspace(1,len(histories[0].history['val_acc']),
+                        num=len(histories[0].history['val_acc'])),
+            np.array(histories[0].history['val_acc']),
+            color='orange', label='test')
+pyplot.xlabel("Epoch")
+pyplot.ylabel("Accuracy")
+pyplot.legend(loc='upper left')
+
+pyplot.show()
+```
+## Modelling - Ensemble Learning
+```
+# Base decision tree
+kf  = model_selection.StratifiedKFold(n_splits = 10, shuffle = True, random_state = 2019)
+
+dt1_parameters = [{'criterion': ['entropy', 'gini'],
+                 'max_depth': list(np.linspace(3, 20, 18, endpoint = True)),
+                 'min_samples_split': list(np.linspace(0.01, 0.2, 20))}]  
+
+dt1 = model_selection.GridSearchCV(DecisionTreeClassifier(), dt1_parameters, scoring = 'roc_auc', cv = kf, n_jobs=-1)
+dt1.fit(X_train, y_train.values.ravel())
+
+print('best score:', dt1.best_score_)
+print('best parameters: ', dt1.best_params_)
+
+# best score: 0.695824851038972
+# best parameters:  {'criterion': 'entropy', 'max_depth': 12.0, 'min_samples_split': 0.06999999999999999}
+```
+```
+pred = (dt1.best_estimator_.predict_proba(X_test)[:,1] >= 0.35).astype(bool)
+prb = dt1.predict_proba(X_test)
+danger = prb[:, 1:2]
+fpr_dt, tpr_dt, thresholds_dt = roc_curve(y_test, danger)
+precision, recall, thresholds = precision_recall_curve(y_test, danger)
+
+auc_dt = roc_auc_score(y_test, danger)
+acc_dt = accuracy_score(y_test, pred)
+precision_dt = precision_score(y_test, pred)
+recall_dt = recall_score(y_test, pred)
+f2_dt = metrics.fbeta_score(y_test, pred, beta = 2)
+
+report = """
+The evaluation report is:
+Confusion Matrix:
+{}
+Accuracy: {}
+Precision: {}
+Recall: {} 
+F2: {}
+""".format(confusion_matrix(y_test, pred), 
+           accuracy_score(y_test, pred), 
+           precision_score(y_test, pred),
+           recall_score(y_test, pred),
+           metrics.fbeta_score(y_test, pred, beta = 2))
+print(report)
+
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_dt, tpr_dt, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curve')
+plt.legend(('Line of No Discrimination', 'ROC'))
+plt.show()
+
+auc_report = """
+AUC: {}
+""".format(roc_auc_score(y_test, danger))
+print(auc_report)
+
+plt.plot(recall, precision, marker='.')
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.title('Precision vs. Recall Curve')
+plt.show()
+
+# Accuracy: 0.7629666750187922
+# Precision: 0.5115562403697997
+# Recall: 0.34547346514047866 
+# F2: 0.3694636100600935
+```
+```
+# Plot Learning Curve
+title = "Learning Curves"
+cv = ShuffleSplit(n_splits=100, test_size=0.2, random_state=2019)
+
+plot_learning_curve(dt1.best_estimator_, title = title, X = X_train, y = y_train, 
+                    train_sizes = (50, 100, 150, 200, 300, 500, 1000, 2000, 3000), 
+                    cv = cv, n_jobs = -1)
+```
+```
+# Plot Decision Tree
+from sklearn.tree import export_graphviz
+from IPython.display import SVG
+from graphviz import Source
+from IPython.display import display
+
+graph = Source(tree.export_graphviz(dt1.best_estimator_,
+                                    out_file=None,
+                                    feature_names=X_train.columns,
+                                    class_names=['no', 'yes'], 
+                                    filled = True))
+
+display(SVG(graph.pipe(format='svg')))
+```
+```
+# Write to PDF
+from io import StringIO
+import pydot
+
+dot_data = StringIO() 
+tree.export_graphviz(dt1.best_estimator_, out_file=dot_data,
+                     feature_names=X_train.columns,
+                     class_names=['no', 'yes'],
+                     filled = True)
+
+graph2 = pydot.graph_from_dot_data(dot_data.getvalue()) 
+
+graph2[0].write_pdf("dt_tuned.pdf")
+```
+## Modelling - Random Forest
+```
+kf  = model_selection.StratifiedKFold(n_splits = 10, shuffle = True, random_state = 2019)
+
+rf1_parameters = [{'n_estimators': [500],
+                 'criterion': ['entropy'],
+                 'max_depth': [11, 12, 13, 14],
+                 'bootstrap': [True],
+                 'min_samples_split': [0.001, 0.002, 0.003, 0.004, 0.005],
+                 'random_state': [2019]}]  
+
+rforest1 = model_selection.GridSearchCV(ensemble.RandomForestClassifier(), rf1_parameters, scoring = 'roc_auc', cv = kf, n_jobs=-1)
+rforest1.fit(X_train, y_train.values.ravel())
+
+print('best score:', rforest1.best_score_)
+print('best parameters: ', rforest1.best_params_)
+# best score: 0.7244339769673417
+# best parameters:  {'bootstrap': True, 'criterion': 'entropy', 'max_depth': 14, 'min_samples_split': 0.002, 'n_estimators': 500, 'random_state': 2019}
+```
+```
+pred = (rforest1.best_estimator_.predict_proba(X_test)[:,1] >= 0.35).astype(bool)
+prb = rforest1.best_estimator_.predict_proba(X_test)
+danger = prb[:, 1:2]
+fpr_rf, tpr_rf, thresholds_rf = roc_curve(y_test, danger)
+
+auc_rf = roc_auc_score(y_test, danger)
+acc_rf = accuracy_score(y_test, pred)
+precision_rf = precision_score(y_test, pred)
+recall_rf = recall_score(y_test, pred)
+f2_rf = metrics.fbeta_score(y_test, pred, beta = 2)
+
+precision, recall, thresholds = precision_recall_curve(y_test, danger)
+
+report = """
+The evaluation report is:
+Confusion Matrix:
+{}
+Accuracy: {}
+Precision: {}
+Recall: {} 
+F2: {}
+""".format(confusion_matrix(y_test, pred), 
+           accuracy_score(y_test, pred), 
+           precision_score(y_test, pred),
+           recall_score(y_test, pred),
+           metrics.fbeta_score(y_test, pred, beta = 2))
+print(report)
+
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_rf, tpr_rf, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curve')
+plt.legend(('Line of No Discrimination', 'ROC'))
+plt.show()
+
+auc_report = """
+AUC: {}
+""".format(roc_auc_score(y_test, danger))
+print(auc_report)
+
+plt.plot(recall, precision, marker='.')
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.title('Precision vs. Recall Curve')
+plt.show()
+
+# Accuracy: 0.7599599097970433
+# Precision: 0.5021707670043415
+# Recall: 0.3610822060353798 
+# F2: 0.38257993384785
+```
+```
+# Ranking feature importance
+varimp = list(zip(X_test.columns, rforest1.best_estimator_.feature_importances_))
+
+def sortSecond(val): 
+    return val[1] 
+
+varimp.sort(key=sortSecond, reverse=True)
+
+print(varimp[0:5])
+```
+## Modelling - XGBoost
+```
+import xgboost as xgb
+
+kf  = model_selection.StratifiedKFold(n_splits = 10, shuffle = True, random_state = 2019)
+
+xgb1_parameters = [{'n_estimators': [500],
+                    'max_depth': [7, 8, 9, 10, 11],
+                    'learning_rate' : [0.001, 0.002, 0.003, 0.004, 0.005],
+                    'random_state': [2019]}]
+
+xgb1 = model_selection.GridSearchCV(xgb.XGBClassifier(), xgb1_parameters, n_jobs = -1, scoring = 'roc_auc', cv = kf)
+xgb1.fit(X_train, y_train.values.ravel())
+
+print('best score:', xgb1.best_score_)
+print('best parameters: ', xgb1.best_params_)
+
+# best score: 0.7261337081199871
+# best parameters:  {'learning_rate': 0.005, 'max_depth': 7, 'n_estimators': 500, 'random_state': 2019}
+```
+```
+pred = (xgb1.best_estimator_.predict_proba(X_test)[:,1] >= 0.35).astype(bool)
+prb = xgb1.best_estimator_.predict_proba(X_test)
+danger = prb[:, 1:2]
+fpr_xgb, tpr_xgb, thresholds_xgb = roc_curve(y_test, danger)
+precision, recall, threshold = precision_recall_curve(y_test, danger)
+
+auc_xgb = roc_auc_score(y_test, danger)
+acc_xgb = accuracy_score(y_test, pred)
+precision_xgb = precision_score(y_test, pred)
+recall_xgb = recall_score(y_test, pred)
+f2_xgb = metrics.fbeta_score(y_test, pred, beta = 2)
+
+report = """
+The evaluation report is:
+Confusion Matrix:
+{}
+Accuracy: {}
+Precision: {}
+Recall: {} 
+F2: {}
+""".format(confusion_matrix(y_test, pred), 
+           accuracy_score(y_test, pred), 
+           precision_score(y_test, pred),
+           recall_score(y_test, pred),
+           metrics.fbeta_score(y_test, pred, beta = 2))
+print(report)
+
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_xgb, tpr_xgb, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curve')
+plt.legend(('Line of No Discrimination', 'ROC'))
+plt.show()
+
+auc_report = """
+AUC: {}
+""".format(roc_auc_score(y_test, danger))
+print(auc_report)
+
+plt.plot(recall, precision, marker='.')
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.title('Precision vs. Recall Curve')
+plt.show()
+
+# Accuracy: 0.7559508895013781
+# Precision: 0.4912043301759134
+# Recall: 0.3777315296566077 
+# F2: 0.3960288020946979
+```
+```
+# Rank feature importance
+varimp = list(zip(X_test.columns, xgb1.best_estimator_.feature_importances_))
+
+def sortSecond(val): 
+    return val[1] 
+
+varimp.sort(key=sortSecond, reverse=True)
+
+print(varimp[0:5])
+
+# [('duration_minutes', 0.08535824), ('avgSpeed', 0.0688276), ('maxSpeed', 0.062423415), ('meanBearDiff', 0.047557395), ('maxDeceleration', 0.040922016)]
+```
+## Modelling - Adaboost
+```
+kf  = model_selection.StratifiedKFold(n_splits = 10, shuffle = True, random_state = 2019)
+
+ab1_parameters = [{'n_estimators': [500],
+                    'learning_rate' : [0.1, 0.2, 0.3, 0.4, 0.5],
+                    'random_state': [2019]}]
+
+ab1 = model_selection.GridSearchCV(ensemble.AdaBoostClassifier(), ab1_parameters, n_jobs = -1, scoring = 'roc_auc', cv = kf)
+ab1.fit(X_train, y_train.values.ravel())
+
+# GridSearchCV(cv=StratifiedKFold(n_splits=10, random_state=2019, shuffle=True),
+             error_score='raise-deprecating',
+             estimator=AdaBoostClassifier(algorithm='SAMME.R',
+                                          base_estimator=None,
+                                          learning_rate=1.0, n_estimators=50,
+                                          random_state=None),
+             iid='warn', n_jobs=-1,
+             param_grid=[{'learning_rate': [0.1, 0.2, 0.3, 0.4, 0.5],
+                          'n_estimators': [500], 'random_state': [2019]}],
+             pre_dispatch='2*n_jobs', refit=True, return_train_score=False,
+             scoring='roc_auc', verbose=0)
+             
+print('best score:', ab1.best_score_)
+print('best parameters: ', ab1.best_params_)
+
+# best score: 0.727789066910167
+# best parameters:  {'learning_rate': 0.2, 'n_estimators': 500, 'random_state': 2019}
+```
+```
+pred = (ab1.best_estimator_.predict_proba(X_test)[:,1] >= 0.5).astype(bool)
+prb = ab1.best_estimator_.predict_proba(X_test)
+danger = prb[:, 1:2]
+fpr_ab, tpr_ab, thresholds_ab = roc_curve(y_test, danger)
+precision, recall, threshold = precision_recall_curve(y_test, danger)
+
+auc_ab = roc_auc_score(y_test, danger)
+acc_ab = accuracy_score(y_test, pred)
+precision_ab = precision_score(y_test, pred)
+recall_ab = recall_score(y_test, pred)
+f2_ab = metrics.fbeta_score(y_test, pred, beta = 2)
+
+report = """
+The evaluation report is:
+Confusion Matrix:
+{}
+Accuracy: {}
+Precision: {}
+Recall: {} 
+F2: {}
+""".format(confusion_matrix(y_test, pred), 
+           accuracy_score(y_test, pred), 
+           precision_score(y_test, pred),
+           recall_score(y_test, pred),
+           metrics.fbeta_score(y_test, pred, beta = 2)
+          )
+print(report)
+
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_ab, tpr_ab, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curve')
+plt.legend(('Line of No Discrimination', 'ROC'))
+plt.show()
+
+auc_report = """
+AUC: {}
+""".format(roc_auc_score(y_test, danger))
+print(auc_report)
+
+plt.plot(recall, precision, marker='.')
+plt.xlabel('Recall')
+plt.ylabel('Precision')
+plt.title('Precision vs. Recall Curve')
+plt.show()
+
+# Accuracy: 0.7902781257830118
+# Precision: 0.7
+# Recall: 0.22580645161290322 
+# F2: 0.2611940298507463
+```
+```
+#Rank feature importance
+varimp = list(zip(X_test.columns, ab1.best_estimator_.feature_importances_))
+
+def sortSecond(val): 
+    return val[1] 
+
+varimp.sort(key=sortSecond, reverse=True)
+
+print(varimp[0:5])
+
+# [('duration_minutes', 0.156), ('meanAccDiff', 0.106), ('avgSpeed', 0.082), ('maxDeceleration', 0.064), ('maxSpeed_kmh', 0.048)]
+```
+## Models Evaluation
+```
+plt.plot([0, 1], [0, 1], linestyle='--')
+plt.plot(fpr_log, tpr_log, marker='.')
+plt.plot(fpr_nn, tpr_nn, marker='.')
+plt.plot(fpr_dt, tpr_dt, marker='.')
+plt.plot(fpr_rf, tpr_rf, marker='.')
+plt.plot(fpr_xgb, tpr_xgb, marker='.')
+plt.plot(fpr_ab, tpr_ab, marker='.')
+plt.xlabel('FPR')
+plt.ylabel('TPR')
+plt.title('ROC Curves of All Classifiers')
+plt.legend(('Line of No Discrimination','Logistic Regression','Neural Network', 'Decision Tree', 'Random Forest', 'XGBoost', 'AdaBoost'))
+plt.show()
+
+report = """
+The AUC for each classifier is:
+Logistic Regression: {}
+Neural Network: {}
+Decision Tree: {} 
+Random Forest: {}
+XGBoost: {}
+AdaBoost: {} 
+
+The Accuracy for each classifier is:
+Logistic Regression: {}
+Neural Network: {}
+Decision Tree: {} 
+Random Forest: {}
+XGBoost: {}
+AdaBoost: {} 
+
+The Precision for each classifier is:
+Logistic Regression: {}
+Neural Network: {}
+Decision Tree: {} 
+Random Forest: {}
+XGBoost: {}
+AdaBoost: {} 
+
+The Recall for each classifier is:
+Logistic Regression: {}
+Neural Network: {}
+Decision Tree: {} 
+Random Forest: {}
+XGBoost: {}
+AdaBoost: {} 
+
+The F2 for each classifier is:
+Logistic Regression: {}
+Neural Network: {}
+Decision Tree: {} 
+Random Forest: {}
+XGBoost: {}
+AdaBoost: {} 
+""".format(auc_log, auc_nn, auc_dt, auc_rf, auc_xgb, auc_ab,
+           acc_log, acc_nn, acc_dt, acc_rf, acc_xgb, acc_ab,
+           precision_log, precision_nn, precision_dt, precision_rf, precision_xgb, precision_ab, 
+           recall_log, recall_nn, recall_dt, recall_rf, recall_xgb, recall_ab, 
+           f2_log, f2_nn, f2_dt, f2_rf, f2_xgb, f2_ab)
+print(report)
+```
+The AUC for each classifier is:
+Logistic Regression: 0.715092570651446
+Neural Network: 0.7176850983745617
+Decision Tree: 0.6998784269686075 
+Random Forest: 0.7207295755590127
+XGBoost: 0.7210795273075694
+AdaBoost: 0.7243135759985988 
+
+The Accuracy for each classifier is:
+Logistic Regression: 0.7592082184916061
+Neural Network: 0.7722375344525182
+Decision Tree: 0.7629666750187922 
+Random Forest: 0.7599599097970433
+XGBoost: 0.7559508895013781
+AdaBoost: 0.7902781257830118 
+
+The Precision for each classifier is:
+Logistic Regression: 0.5
+Neural Network: 0.5410094637223974
+Decision Tree: 0.5115562403697997 
+Random Forest: 0.5021707670043415
+XGBoost: 0.4912043301759134
+AdaBoost: 0.7 
+
+The Recall for each classifier is:
+Logistic Regression: 0.3850156087408949
+Neural Network: 0.35691987513007284
+Decision Tree: 0.34547346514047866 
+Random Forest: 0.3610822060353798
+XGBoost: 0.3777315296566077
+AdaBoost: 0.22580645161290322 
+
+The F2 for each classifier is:
+Logistic Regression: 0.40357766143106455
+Neural Network: 0.38298347476552025
+Decision Tree: 0.3694636100600935 
+Random Forest: 0.38257993384785
+XGBoost: 0.3960288020946979
+AdaBoost: 0.2611940298507463 
+
