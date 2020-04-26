@@ -1037,43 +1037,44 @@ AdaBoost: {}
            recall_log, recall_nn, recall_dt, recall_rf, recall_xgb, recall_ab, 
            f2_log, f2_nn, f2_dt, f2_rf, f2_xgb, f2_ab)
 print(report)
+
+# The AUC for each classifier is:
+# Logistic Regression: 0.715092570651446
+# Neural Network: 0.7176850983745617
+# Decision Tree: 0.6998784269686075 
+# Random Forest: 0.7207295755590127
+# XGBoost: 0.7210795273075694
+# AdaBoost: 0.7243135759985988 
+
+# The Accuracy for each classifier is:
+# Logistic Regression: 0.7592082184916061
+# Neural Network: 0.7722375344525182
+# Decision Tree: 0.7629666750187922 
+# Random Forest: 0.7599599097970433
+# XGBoost: 0.7559508895013781
+# AdaBoost: 0.7902781257830118 
+
+# The Precision for each classifier is:
+# Logistic Regression: 0.5
+# Neural Network: 0.5410094637223974
+# Decision Tree: 0.5115562403697997 
+# Random Forest: 0.5021707670043415
+# XGBoost: 0.4912043301759134
+# AdaBoost: 0.7 
+
+# The Recall for each classifier is:
+# Logistic Regression: 0.3850156087408949
+# Neural Network: 0.35691987513007284
+# Decision Tree: 0.34547346514047866 
+# Random Forest: 0.3610822060353798
+# XGBoost: 0.3777315296566077
+# AdaBoost: 0.22580645161290322 
+
+# The F2 for each classifier is:
+# Logistic Regression: 0.40357766143106455
+# Neural Network: 0.38298347476552025
+# Decision Tree: 0.3694636100600935 
+# Random Forest: 0.38257993384785
+# XGBoost: 0.3960288020946979
+# AdaBoost: 0.2611940298507463 
 ```
-The AUC for each classifier is:
-Logistic Regression: 0.715092570651446
-Neural Network: 0.7176850983745617
-Decision Tree: 0.6998784269686075 
-Random Forest: 0.7207295755590127
-XGBoost: 0.7210795273075694
-AdaBoost: 0.7243135759985988 
-
-The Accuracy for each classifier is:
-Logistic Regression: 0.7592082184916061
-Neural Network: 0.7722375344525182
-Decision Tree: 0.7629666750187922 
-Random Forest: 0.7599599097970433
-XGBoost: 0.7559508895013781
-AdaBoost: 0.7902781257830118 
-
-The Precision for each classifier is:
-Logistic Regression: 0.5
-Neural Network: 0.5410094637223974
-Decision Tree: 0.5115562403697997 
-Random Forest: 0.5021707670043415
-XGBoost: 0.4912043301759134
-AdaBoost: 0.7 
-
-The Recall for each classifier is:
-Logistic Regression: 0.3850156087408949
-Neural Network: 0.35691987513007284
-Decision Tree: 0.34547346514047866 
-Random Forest: 0.3610822060353798
-XGBoost: 0.3777315296566077
-AdaBoost: 0.22580645161290322 
-
-The F2 for each classifier is:
-Logistic Regression: 0.40357766143106455
-Neural Network: 0.38298347476552025
-Decision Tree: 0.3694636100600935 
-Random Forest: 0.38257993384785
-XGBoost: 0.3960288020946979
-AdaBoost: 0.2611940298507463 
